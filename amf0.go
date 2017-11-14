@@ -358,6 +358,14 @@ func (a *Amf0) WriteEcmaAryBegin(aryCount uint32) {
 	a.buf.Write(tempAry)
 }
 
+func (a *Amf0) WriteStrictAryBegin(aryCount uint32) {
+	tempAry := make([]byte, 4)
+	binary.BigEndian.PutUint32(tempAry, aryCount)
+
+	a.buf.WriteByte(0x0A)
+	a.buf.Write(tempAry)
+}
+
 func (a *Amf0) GetData() []byte {
 	return a.buf.Bytes()
 }
