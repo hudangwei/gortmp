@@ -1,7 +1,11 @@
 package rtmp
 
-import "fmt"
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+	"io"
+)
+
 import "encoding/binary"
 
 const (
@@ -301,31 +305,22 @@ func (r *RtmpPacket) InvokeMessage(headerType byte, chunkStreamId byte, timeStam
 }
 
 func (r *RtmpPacket) PackBodyChunk(chunkStreamId byte, chunkSize int, bodyData []byte) []byte {
-	chunkCount := len(bodyData) / chunkSize
-	modChunk := len(bodyData) % chunkSize
-
-	var bufData bytes.Buffer
-
-	totalLen := len(bodyData) + chunkCount
-	if modChunk == 0 {
-		totalLen -= 1
-		modChunk = chunkSize
+	dataLen := len(bodyData)
+	input := bytes.NewBuffer(bodyData)
+	output := new(bytes.Buffer)
+	io.CopyN(output, input, int64(chunkSize))
+	remain := dataLen - chunkSize
+	for {
+		output.WriteByte(0xC0 | chunkStreamId)
+		if remain > chunkSize {
+			io.CopyN(output, input, int64(chunkSize))
+			remain -= chunkSize
+		} else {
+			io.CopyN(output, input, int64(remain))
+			break
+		}
 	}
-
-	index := 0
-
-	for i := 0; i < chunkCount; i++ {
-		bufData.Write(bodyData[i*chunkSize : i*chunkSize+chunkSize])
-		bufData.WriteByte(0xC0 | chunkStreamId)
-		index += 1
-	}
-
-	if modChunk != 0 {
-		bufData.Write(bodyData[index*chunkSize:])
-	}
-
-	return bufData.Bytes()
-
+	return output.Bytes()
 }
 
 func (r *RtmpPacket) GetBodySize() int {
